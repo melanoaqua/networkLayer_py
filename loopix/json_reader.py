@@ -43,5 +43,6 @@ class JSONReader(object):
     def get_provider_config_params(self):
         config_params = self.get_mixnode_config_params()
         max_retrieve = int(self._PARAMS["parametersProviders"]["MAX_RETRIEVE"])
-        config_params = config_params._replace(MAX_RETRIEVE = max_retrieve)
+        push_messages = self._PARAMS["parametersProviders"]["PUSH_MESSAGES"]
+        config_params = config_params._replace(MAX_RETRIEVE = max_retrieve)._replace(PUSH_MESSAGES = push_messages)
         return config_params

@@ -23,6 +23,7 @@
       "EXP_PARAMS_LOOPS": "2.0",
       "EXP_PARAMS_DELAY": "0.001",
       "MAX_DELAY_TIME": "-432000",
-      "DATABASE_NAME":"example.db"
+      "DATABASE_NAME":"example.db",
+      "PUSH_MESSAGES": false
     }
 }

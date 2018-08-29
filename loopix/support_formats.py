@@ -15,7 +15,8 @@ Params = namedtuple('Params',
                      'MAX_DELAY_TIME',
                      'NOISE_LENGTH',
                      'MAX_RETRIEVE',
-                     'DATA_DIR'])
+                     'DATA_DIR',
+                     'PUSH_MESSAGES'])
 
 Mix.__new__.__defaults__ = (None,) * len(Mix._fields)
 Provider.__new__.__defaults__ = (None,) * len(Provider._fields)

@@ -1,5 +1,5 @@
 from mix_core import MixCore
-from core import SphinxPacker
+from core import SphinxPacker, generate_random_string
 from sphinxmix.SphinxClient import Relay_flag, Dest_flag
 
 class ProviderCore(MixCore):
@@ -12,6 +12,13 @@ class ProviderCore(MixCore):
         self.host = host
         self.privk = privk
         self.pubk = pubk
+
+    def create_dummy_message(self, receiver):
+        path = [receiver]
+        dummy_message = 'HD' + generate_random_string(self.config.NOISE_LENGTH)
+        header, body = self.packer.make_sphinx_packet(
+            receiver=receiver, path=path, message=dummy_message)
+        return header, body
 
     def process_packet(self, packet):
         tag, routing, new_header, new_body = self.packer.decrypt_sphinx_packet(packet, self.privk)

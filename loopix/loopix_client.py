@@ -2,6 +2,8 @@ from Queue import Queue
 import random
 import os
 import petlib.pack
+import socket
+import time
 from processQueue import ProcessQueue
 from client_core import ClientCore
 from core import sample_from_exponential, group_layered_topology
@@ -11,6 +13,7 @@ from json_reader import JSONReader
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor, task, abstract
 from twisted.python import log
+from binascii import hexlify
 
 import twisted.names.client
 
@@ -32,6 +35,7 @@ class LoopixClient(DatagramProtocol):
         self.crypto_client = ClientCore((sec_params, self.config_params), self.name,
                                         self.port, self.host, self.privk, self.pubk)
         self.provider = Provider(name=provider_id)
+        self.latency_file = open('latency.csv', 'a')
 
 
     def startProtocol(self):
@@ -54,14 +58,17 @@ class LoopixClient(DatagramProtocol):
 
     def get_provider_data(self):
         self.provider = self.dbManager.select_provider_by_name(self.provider.name)
-        d = twisted.names.client.getHostByName(self.provider.host)
-        d.addCallback(self.resolve_provider_address)
+        try:
+            result = socket.gethostbyname(self.provider.host)
+            self.provider = self.provider._replace(host=result)
+        except socket.gaierror, err:
+            print(err)
 
     def resolve_provider_address(self, result):
         self.provider = self.provider._replace(host = result)
 
     def subscribe_to_provider(self):
-        lc = task.LoopingCall(self.send, ['SUBSCRIBE', self.name, self.host, self.port])
+        lc = task.LoopingCall(self.send, ['SUBSCRIBE', self.name, self.host, self.port, self.pubk])
         lc.start(self.config_params.TIME_PULL, now=True)
 
     def register_mixes(self, mixes):
@@ -97,9 +104,18 @@ class LoopixClient(DatagramProtocol):
 
     def read_packet(self, packet):
         decoded_packet = petlib.pack.decode(packet)
-        if not decoded_packet[0] == 'DUMMY':
-            flag, decrypted_packet = self.crypto_client.process_packet(decoded_packet)
-            return (flag, decrypted_packet)
+        flag, decrypted_packet = self.crypto_client.process_packet(decoded_packet)
+        recv_time = time.time()
+        try:
+            plain = decrypted_packet.decode("utf-8")
+            sent_time = float(plain)
+            time_taken = recv_time - sent_time
+            self.latency_file.write('%f,%f,%f\n' % (recv_time, sent_time, time_taken))
+            self.latency_file.flush()
+        except:
+            pass
+        log.msg("[%s] > Received %s:%s" % (self.name, flag, hexlify(decrypted_packet)))
+        return (flag, decrypted_packet)
 
     def send_message(self, message, receiver):
         path = self.construct_full_path(receiver)
@@ -109,6 +125,7 @@ class LoopixClient(DatagramProtocol):
     def send(self, packet):
         encoded_packet = petlib.pack.encode(packet)
         if abstract.isIPAddress(self.provider.host):
+            log.msg("[%s] > Sending packet to %s:%s" % (self.name, self.provider.host, self.provider.port))
             self.transport.write(encoded_packet, (self.provider.host, self.provider.port))
 
     def schedule_next_call(self, param, method):
@@ -137,13 +154,15 @@ class LoopixClient(DatagramProtocol):
         self.send((header, body))
 
     def make_real_stream(self):
-        if not self.output_buffer.empty():
-            log.msg("[%s] > Sending message from buffer." % self.name)
-            packet = self.output_buffer.get()
-            self.send(packet)
-        else:
-            log.msg("[%s] > Sending substituting drop message." % self.name)
-            self.send_drop_message()
+        # if not self.output_buffer.empty():
+        #     log.msg("[%s] > Sending message from buffer." % self.name)
+        #     packet = self.output_buffer.get()
+        #     self.send(packet)
+        # else:
+        #     log.msg("[%s] > Sending substituting drop message." % self.name)
+        #     self.send_drop_message()
+        log.msg("[%s] > Sending latency message." % self.name)
+        self.send_message('%f' % time.time(), self)
         self.schedule_next_call(self.config_params.EXP_PARAMS_PAYLOAD, self.make_real_stream)
 
     def construct_full_path(self, receiver):

@@ -84,6 +84,7 @@ class LoopixMixNode(DatagramProtocol):
         self.process_queue.put(data)
 
     def handle_packet(self, packet):
+        print "[%s] > Got packet" % self.name
         self.read_packet(packet)
         try:
             self.reactor.callFromThread(self.get_and_addCallback, self.handle_packet)
@@ -95,10 +96,13 @@ class LoopixMixNode(DatagramProtocol):
             decoded_packet = petlib.pack.decode(packet)
             flag, decrypted_packet = self.crypto_node.process_packet(decoded_packet)
             if flag == "ROUT":
-                delay, new_header, new_body, next_addr, _ = decrypted_packet
+                delay, new_header, new_body, next_addr, next_name = decrypted_packet
+                print "[%s] > Received routing message: %s (%s)" % (self.name, next_addr, next_name)
                 reactor.callFromThread(self.send_or_delay, delay, (new_header, new_body), next_addr)
             elif flag == "LOOP":
                 print "[%s] > Received loop message" % self.name
+            else:
+                print "[%s] > Received unknown message %s" % (self.name, flag)
         except Exception, exp:
             print "ERROR: ", str(exp)
 
@@ -107,6 +111,7 @@ class LoopixMixNode(DatagramProtocol):
 
     def send(self, packet, (host, port)):
         encoded_packet = petlib.pack.encode(packet)
+        print "[%s] > Sending packet to %s:%s (size: %d)" % (self.name, host, port, len(encoded_packet))
         if abstract.isIPAddress(host):
             self.transport.write(encoded_packet, (host, port))
         else:

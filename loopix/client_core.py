@@ -15,19 +15,20 @@ class ClientCore(object):
 
     def create_loop_message(self, path):
         loop_message = 'HT' + generate_random_string(self.config.NOISE_LENGTH)
-        header, body = self.packer.make_sphinx_packet(self, path, loop_message)
+        header, body = self.packer.make_sphinx_packet(self, path, loop_message, type_flag=b'\x03')
         log.msg("[%s] > Packed loop message." % self.name)
         return (header, body)
 
     def create_drop_message(self, random_reciever, path):
         drop_message = generate_random_string(self.config.NOISE_LENGTH)
         header, body = self.packer.make_sphinx_packet(
-            random_reciever, path, drop_message, drop_flag=True)
+            random_reciever, path, drop_message, drop_flag=True, type_flag=b'\x02')
         log.msg("[%s] > Packed drop message." % self.name)
         return (header, body)
 
     def pack_real_message(self, message, receiver, path):
-        header, body = self.packer.make_sphinx_packet(receiver, path, message)
+        header, body = self.packer.make_sphinx_packet(
+            receiver, path, message, type_flag=b'\x01')
         log.msg("[%s] > Packed real message." % self.name)
         return header, body
 
